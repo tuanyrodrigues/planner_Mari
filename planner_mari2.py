@@ -68,10 +68,20 @@ with st.expander("🏋️‍♀️ Cadastrar Treino Personalizado"):
     if aluno_selecionado:
         dia_escolhido = st.selectbox("Dia da Semana", dias_semana_pt)
         treino_texto = st.text_area("Digite o treino:")
+        repeticao = st.selectbox("Repetir treino", ["Nunca", "Semanal", "Quinzenal", "Mensal"])
         if st.button("Salvar Treino"):
             if aluno_selecionado not in treinos:
                 treinos[aluno_selecionado] = {}
-            treinos[aluno_selecionado][dia_escolhido] = treino_texto
+            if dia_escolhido not in treinos[aluno_selecionado]:
+                treinos[aluno_selecionado][dia_escolhido] = []
+            
+            # Adiciona o treino com a repetição escolhida
+            treinos[aluno_selecionado][dia_escolhido].append({
+                "treino": treino_texto,
+                "repeticao": repeticao,
+                "inicio": datetime.today().strftime("%Y-%m-%d")
+            })
+
             salvar_treinos(treinos)
             st.success(f"Uhuuuul!!! Treino de {aluno_selecionado} na {dia_escolhido} salvo com sucesso!")
 
@@ -128,9 +138,26 @@ if dia_selecionado:
     if alunos_do_dia:
         st.subheader(f"Alunos com treino na {nome_dia_semana}, dia {dia_selecionado}")
         for aluno in alunos_do_dia:
-            treino = treinos.get(aluno, {}).get(nome_dia_semana, "Treino não cadastrado :( ")
-            with st.expander(f"📌 {aluno}"):
-                st.write(treino)
+            treino_encontrado = None
+            for item in treinos.get(aluno, {}).get(nome_dia_semana, []):
+                data_inicio = datetime.strptime(item["inicio"], "%Y-%m-%d")
+                diff = (data_obj - data_inicio).days
+
+                # Verifica a repetição do treino
+                if item["repeticao"] == "Nunca" and data_obj.date() == data_inicio.date():
+                    treino_encontrado = item["treino"]
+                    break
+                elif item["repeticao"] == "Semanal" and diff % 7 == 0 and diff >= 0:
+                    treino_encontrado = item["treino"]
+                elif item["repeticao"] == "Quinzenal" and diff % 14 == 0 and diff >= 0:
+                    treino_encontrado = item["treino"]
+                elif item["repeticao"] == "Mensal" and data_obj.day == data_inicio.day and data_obj >= data_inicio:
+                    treino_encontrado = item["treino"]
+
+            if treino_encontrado:
+                with st.expander(f"📌 {aluno}"):
+                    st.write(treino_encontrado)
     else:
         st.info(f"Nenhum aluno com treino cadastrado para {nome_dia_semana}.")
+
 
