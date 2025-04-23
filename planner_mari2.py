@@ -48,6 +48,20 @@ with st.expander("👤 Cadastrar Aluno"):
             salvar_alunos(alunos)
             st.success(f"Aluno {nome_aluno} salvo com sucesso!")
 
+# Excluir aluno existente
+with st.expander("Excluir Aluno"):
+    if alunos:
+        aluno_para_excluir = st.selectbox("Selecione o aluno que deseja excluir", list(alunos.keys()))
+        if st.button("Excluir Aluno"):
+            if aluno_para_excluir in alunos:
+                del alunos[aluno_para_excluir]
+                treinos.pop(aluno_para_excluir, None)  # remove os treinos também se houver
+                salvar_alunos(alunos)
+                salvar_treinos(treinos)
+                st.success(f"Aluno {aluno_para_excluir} excluído com sucesso!")
+    else:
+        st.info("Nenhum aluno cadastrado ainda.")
+
 # Cadastro de treino
 with st.expander("🏋️‍♀️ Cadastrar Treino Personalizado"):
     aluno_selecionado = st.selectbox("Selecione o Aluno", list(alunos.keys()) or [""])
