@@ -126,38 +126,44 @@ if semana:
 df_cal = pd.DataFrame(matriz, columns=dias_semana_pt)
 st.dataframe(df_cal, use_container_width=True)
 
-# Seleção de dia e exibição de treinos
-dias_validos = [data for data, _ in linha]
+# Seleção de dia
+dias_validos = [data for data, _, _ in linha]
 dia_selecionado = st.selectbox("Escolha o dia (DD/MM):", dias_validos)
 
+# Exibir os treinos do dia selecionado
 if dia_selecionado:
-    data_obj = datetime.strptime(f"{dia_selecionado}/{ano}", "%d/%m/%Y")
-    nome_dia_semana = dias_semana_pt[data_obj.weekday()]
+    st.write(f"Treinos para o dia {dia_selecionado}")
+    try:
+        # Garantir a data correta
+        data_str = f"{dia_selecionado}/{datetime.now().month:02d}/{datetime.now().year}"
+        data_obj = datetime.strptime(data_str, "%d/%m/%Y")
+        nome_dia_semana = dias_semana_pt[data_obj.weekday()]
+    except ValueError as e:
+        st.error(f"Erro na conversão da data: {e}")
+        nome_dia_semana = None
 
-    alunos_do_dia = [a for a, dias in alunos.items() if nome_dia_semana in dias]
-    if alunos_do_dia:
-        st.subheader(f"Alunos com treino na {nome_dia_semana}, dia {dia_selecionado}")
-        for aluno in alunos_do_dia:
-            treino_encontrado = None
-            for item in treinos.get(aluno, {}).get(nome_dia_semana, []):
-                data_inicio = datetime.strptime(item["inicio"], "%Y-%m-%d")
-                diff = (data_obj - data_inicio).days
+    # Exibir treinos
+    if nome_dia_semana:
+        st.subheader(f"Alunos com treino em {dia_selecionado} ({nome_dia_semana})")
+        for aluno, dias in alunos.items():
+            if nome_dia_semana in dias:
+                treinos_dia = treinos.get(aluno, {}).get(nome_dia_semana, [])
+                treino_encontrado = None
+                for item in treinos_dia:
+                    data_inicio = datetime.strptime(item["inicio"], "%Y-%m-%d")
+                    diff = (data_obj - data_inicio).days
+                    if item["repeticao"] == "Nunca" and data_obj.date() == data_inicio.date():
+                        treino_encontrado = item["treino"]
+                        break
+                    elif item["repeticao"] == "Semanal" and diff % 7 == 0 and diff >= 0:
+                        treino_encontrado = item["treino"]
+                    elif item["repeticao"] == "Quinzenal" and diff % 14 == 0 and diff >= 0:
+                        treino_encontrado = item["treino"]
+                    elif item["repeticao"] == "Mensal" and data_obj.day == data_inicio.day and data_obj >= data_inicio:
+                        treino_encontrado = item["treino"]
 
-                # Verifica a repetição do treino
-                if item["repeticao"] == "Nunca" and data_obj.date() == data_inicio.date():
-                    treino_encontrado = item["treino"]
-                    break
-                elif item["repeticao"] == "Semanal" and diff % 7 == 0 and diff >= 0:
-                    treino_encontrado = item["treino"]
-                elif item["repeticao"] == "Quinzenal" and diff % 14 == 0 and diff >= 0:
-                    treino_encontrado = item["treino"]
-                elif item["repeticao"] == "Mensal" and data_obj.day == data_inicio.day and data_obj >= data_inicio:
-                    treino_encontrado = item["treino"]
-
-            if treino_encontrado:
-                with st.expander(f"📌 {aluno}"):
-                    st.write(treino_encontrado)
+                if treino_encontrado:
+                    with st.expander(f"📌 {aluno}"):
+                        st.write(treino_encontrado)
     else:
-        st.info(f"Nenhum aluno com treino cadastrado para {nome_dia_semana}.")
-
-
+        st.error("Não foi possível determinar o dia da semana.")
