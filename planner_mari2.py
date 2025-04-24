@@ -1,8 +1,9 @@
 import streamlit as st
+from streamlit_calendar import calendar
 import pandas as pd
 import json
 from datetime import datetime, timedelta
-import calendar
+import calendar as cal
 
 # Configuração do idioma
 dias_semana_pt = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
@@ -32,7 +33,6 @@ def salvar_treinos(treinos):
 
 st.set_page_config(page_title="Agenda Mariana Belotto", page_icon="📅", layout="wide")
 st.title("📅 Agenda Mariana Belotto")
-st.write("Clique em um dia para ver os alunos com treino e seus respectivos treinos.")
 
 # Carregar dados
 alunos = carregar_alunos()
@@ -49,13 +49,13 @@ with st.expander("👤 Cadastrar Aluno"):
             st.success(f"Aluno {nome_aluno} salvo com sucesso!")
 
 # Excluir aluno existente
-with st.expander("Excluir Aluno"):
+with st.expander("🗑️ Excluir Aluno"):
     if alunos:
         aluno_para_excluir = st.selectbox("Selecione o aluno que deseja excluir", list(alunos.keys()))
         if st.button("Excluir Aluno"):
             if aluno_para_excluir in alunos:
                 del alunos[aluno_para_excluir]
-                treinos.pop(aluno_para_excluir, None)  # remove os treinos também se houver
+                treinos.pop(aluno_para_excluir, None)
                 salvar_alunos(alunos)
                 salvar_treinos(treinos)
                 st.success(f"Aluno {aluno_para_excluir} excluído com sucesso!")
@@ -74,96 +74,63 @@ with st.expander("🏋️‍♀️ Cadastrar Treino Personalizado"):
                 treinos[aluno_selecionado] = {}
             if dia_escolhido not in treinos[aluno_selecionado]:
                 treinos[aluno_selecionado][dia_escolhido] = []
-            
-            # Adiciona o treino com a repetição escolhida
             treinos[aluno_selecionado][dia_escolhido].append({
                 "treino": treino_texto,
                 "repeticao": repeticao,
                 "inicio": datetime.today().strftime("%Y-%m-%d")
             })
-
             salvar_treinos(treinos)
             st.success(f"Uhuuuul!!! Treino de {aluno_selecionado} na {dia_escolhido} salvo com sucesso!")
 
-# Navegação do calendário
-st.subheader("🗓️ Calendário")
-meses = list(calendar.month_name)[1:]
-anos = list(range(datetime.now().year, 2026))
-col1, col2 = st.columns(2)
-with col1:
-    mes = st.selectbox("Mês", meses, index=datetime.now().month - 1)
-with col2:
-    ano = st.selectbox("Ano", anos, index=0)
+# Geração dos eventos para o calendário
+eventos = []
+data_inicio = datetime(datetime.now().year, 1, 1)
+data_fim = datetime(datetime.now().year + 1, 1, 1)
+dias_range = pd.date_range(start=data_inicio, end=data_fim)
 
-mes_num = meses.index(mes) + 1
-primeiro_dia = datetime(ano, mes_num, 1)
-ultimo_dia = datetime(ano, mes_num, calendar.monthrange(ano, mes_num)[1])
+for aluno, dias_fixos in alunos.items():
+    treinos_aluno = treinos.get(aluno, {})
+    for dia in dias_range:
+        nome_dia = dias_semana_pt[dia.weekday()]
+        if nome_dia in dias_fixos:
+            treinos_dia = treinos_aluno.get(nome_dia, [])
+            for item in treinos_dia:
+                inicio_treino = datetime.strptime(item["inicio"], "%Y-%m-%d")
+                diff = (dia - inicio_treino).days
+                repetir = item["repeticao"]
+                mostrar = False
+                if repetir == "Nunca" and dia.date() == inicio_treino.date():
+                    mostrar = True
+                elif repetir == "Semanal" and diff % 7 == 0 and diff >= 0:
+                    mostrar = True
+                elif repetir == "Quinzenal" and diff % 14 == 0 and diff >= 0:
+                    mostrar = True
+                elif repetir == "Mensal" and dia.day == inicio_treino.day and dia >= inicio_treino:
+                    mostrar = True
+                if mostrar:
+                    eventos.append({
+                        "title": aluno,
+                        "start": dia.strftime("%Y-%m-%d"),
+                        "end": dia.strftime("%Y-%m-%d"),
+                        "extendedProps": {
+                            "treino": item["treino"]
+                        }
+                    })
 
-# Geração do calendário
-dias_do_mes = [primeiro_dia + timedelta(days=i) for i in range((ultimo_dia - primeiro_dia).days + 1)]
-tabela_calendario = pd.DataFrame(columns=dias_semana_pt)
-linha = []
+# Calendário visual
+st.subheader("🗓️ Visualização do Calendário")
+cal_config = {
+    "initialView": "dayGridMonth",
+    "locale": "pt-br",
+    "eventClick": {
+        "enabled": True,
+        "callback": "alert(info.event.extendedProps.treino);"
+    },
+    "headerToolbar": {
+        "left": "prev,next today",
+        "center": "title",
+        "right": "dayGridMonth,timeGridWeek"
+    }
+}
 
-for dia in dias_do_mes:
-    nome_dia = dias_semana_pt[dia.weekday()]
-    linha.append((dia.strftime("%d/%m"), nome_dia))
-
-# Montar calendário formatado
-semana = []
-matriz = []
-for data, nome_dia in linha:
-    while len(semana) < dias_semana_pt.index(nome_dia):
-        semana.append("")
-    semana.append(data)
-    if len(semana) == 7:
-        matriz.append(semana)
-        semana = []
-if semana:
-    while len(semana) < 7:
-        semana.append("")
-    matriz.append(semana)
-
-df_cal = pd.DataFrame(matriz, columns=dias_semana_pt)
-st.dataframe(df_cal, use_container_width=True)
-
-# Seleção de dia
-dias_validos = [data for data, _ in linha]
-dia_selecionado = st.selectbox("Escolha o dia (DD/MM):", dias_validos)
-
-# Exibir os treinos do dia selecionado
-if dia_selecionado:
-    st.write(f"Treinos para o dia {dia_selecionado}")
-    try:
-        # Garantir a data correta
-        data_str = f"{dia_selecionado}/{datetime.now().month:02d}/{datetime.now().year}"
-        data_obj = datetime.strptime(data_str, "%d/%m/%Y")
-        nome_dia_semana = dias_semana_pt[data_obj.weekday()]
-    except ValueError as e:
-        st.error(f"Erro na conversão da data: {e}")
-        nome_dia_semana = None
-
-    # Exibir treinos
-    if nome_dia_semana:
-        st.subheader(f"Alunos com treino em {dia_selecionado} ({nome_dia_semana})")
-        for aluno, dias in alunos.items():
-            if nome_dia_semana in dias:
-                treinos_dia = treinos.get(aluno, {}).get(nome_dia_semana, [])
-                treino_encontrado = None
-                for item in treinos_dia:
-                    data_inicio = datetime.strptime(item["inicio"], "%Y-%m-%d")
-                    diff = (data_obj - data_inicio).days
-                    if item["repeticao"] == "Nunca" and data_obj.date() == data_inicio.date():
-                        treino_encontrado = item["treino"]
-                        break
-                    elif item["repeticao"] == "Semanal" and diff % 7 == 0 and diff >= 0:
-                        treino_encontrado = item["treino"]
-                    elif item["repeticao"] == "Quinzenal" and diff % 14 == 0 and diff >= 0:
-                        treino_encontrado = item["treino"]
-                    elif item["repeticao"] == "Mensal" and data_obj.day == data_inicio.day and data_obj >= data_inicio:
-                        treino_encontrado = item["treino"]
-
-                if treino_encontrado:
-                    with st.expander(f"📌 {aluno}"):
-                        st.write(treino_encontrado)
-    else:
-        st.error("Não foi possível determinar o dia da semana.")
+calendar(events=eventos, options=cal_config)
