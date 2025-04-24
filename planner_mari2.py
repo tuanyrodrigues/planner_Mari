@@ -127,7 +127,7 @@ df_cal = pd.DataFrame(matriz, columns=dias_semana_pt)
 st.dataframe(df_cal, use_container_width=True)
 
 # Seleção de dia
-dias_validos = [data for data, _, _ in linha]
+dias_validos = [data for data, _ in linha]
 dia_selecionado = st.selectbox("Escolha o dia (DD/MM):", dias_validos)
 
 # Exibir os treinos do dia selecionado
