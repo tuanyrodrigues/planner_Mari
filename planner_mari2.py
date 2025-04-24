@@ -94,7 +94,13 @@ for aluno, dias_fixos in alunos.items():
         if nome_dia in dias_fixos:
             treinos_dia = treinos_aluno.get(nome_dia, [])
             for item in treinos_dia:
-                inicio_treino = datetime.strptime(item["inicio"], "%Y-%m-%d")
+                try:
+                    # Verificar se "inicio" tem o formato correto antes de converter
+                    inicio_treino = datetime.strptime(item["inicio"], "%Y-%m-%d")
+                except ValueError:
+                    st.warning(f"A data de início do treino de {aluno} no dia {nome_dia} é inválida: {item['inicio']}")
+                    continue  # Se a data for inválida, pula para o próximo item
+
                 diff = (dia - inicio_treino).days
                 repetir = item["repeticao"]
                 mostrar = False
@@ -121,10 +127,6 @@ st.subheader("🗓️ Visualização do Calendário")
 cal_config = {
     "initialView": "dayGridMonth",
     "locale": "pt-br",
-    "eventClick": {
-        "enabled": True,
-        "callback": "alert(info.event.extendedProps.treino);"
-    },
     "headerToolbar": {
         "left": "prev,next today",
         "center": "title",
