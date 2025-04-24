@@ -3,7 +3,6 @@ from streamlit_calendar import calendar
 import pandas as pd
 import json
 from datetime import datetime, timedelta
-import calendar as cal
 
 # Configuração do idioma
 dias_semana_pt = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
